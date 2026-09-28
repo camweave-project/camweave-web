@@ -1,0 +1,9 @@
+{
+  "name": "camweave-web",
+  "version": "1.0.0",
+  "description": "Self-hosted multi-camera viewer for CamWeave",
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=24" },
+  "scripts": { "start": "node --env-file-if-exists=.env server.mjs", "test": "node --test" }
+}
