@@ -16,7 +16,7 @@ Keep the iPhone camera app open in the foreground. Locking the phone or backgrou
 ## Run locally
 
 ```sh
-git clone https://github.com/Jianxuan-Li/camweave-web.git
+git clone https://github.com/camweave-project/camweave-web.git
 cd camweave-web
 cp .env.example .env
 ```
