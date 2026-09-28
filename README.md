@@ -64,6 +64,7 @@ No npm dependencies need installing. To build your own container, run `docker bu
 ```mermaid
 flowchart TB
   subgraph privateNet["Your private Tailscale network"]
+    direction TB
     viewer["1. Your phone or another computer<br/>Tailscale connected + web browser"]
     address["2. Open your computer’s private viewer URL<br/>https://my-computer.example-tailnet.ts.net"]
     web["3. Your computer<br/>Tailscale Serve → CamWeave Web in Docker<br/>Sign in to see all cameras"]
