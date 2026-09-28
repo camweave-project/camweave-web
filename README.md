@@ -57,21 +57,62 @@ No npm dependencies need installing. To build your own container, run `docker bu
 
 ## Watch from another device or deploy on a VPS
 
-```text
-Phone or PC browser ── private HTTPS ── Your server ── private network ── Cameras
+### Your computer + Tailscale: which address do I open?
+
+**Open your computer’s private Tailscale HTTPS address to see all your cameras.** It looks like a website address, but with Tailscale Serve it is reachable only through your private Tailscale network, subject to your access rules. CamWeave Web runs on your own computer, which must stay awake and connected.
+
+```mermaid
+flowchart TB
+  subgraph privateNet["Your private Tailscale network"]
+    viewer["1. Your phone or another computer<br/>Tailscale connected + web browser"]
+    address["2. Open your computer’s private viewer URL<br/>https://my-computer.example-tailnet.ts.net"]
+    web["3. Your computer<br/>Tailscale Serve → CamWeave Web in Docker<br/>Sign in to see all cameras"]
+    cameras["4. Your camera iPhones<br/>CamWeave Camera + Tailscale<br/>Camera apps stay open and unlocked"]
+    viewer -->|"Private HTTPS access"| address
+    address --> web
+    web -->|"Private camera links: video and controls"| cameras
+  end
+  style privateNet fill:#f0f9f5,stroke:#28765b,stroke-width:2px
+  style address fill:#d9f2e5,stroke:#28765b,stroke-width:2px
 ```
+
+The address above is an **example**. Copy the real HTTPS URL printed by `tailscale serve`; do not type the example literally.
+
+| Where you are | Address to use |
+|---|---|
+| Browser on the computer running CamWeave Web, before setting up Serve | `http://127.0.0.1:8080` — this computer only |
+| Browser on your phone or another computer, after setting up Serve | Your computer’s `https://…ts.net` URL — connect to Tailscale first |
+| Adding a camera inside CamWeave Web | The camera’s full private viewing link, including its access code — not the computer’s viewer URL |
+
+After configuring `PUBLIC_URL` for Serve, use that HTTPS URL on the host computer too. `127.0.0.1` always means the device you are currently using; on your phone, it does **not** mean your computer. Keep the camera’s private hostname and port from its actual viewing link; a camera’s Tailscale IP may look like `100.x.y.z`, but changing an IP into a URL does not configure HTTPS.
+
+**Private access, with two checks:** Tailscale must allow the device to reach your computer, and the viewer requires your CamWeave Web password. The browser-to-computer and computer-to-camera connections use Tailscale’s encrypted network. This setup does not publish the viewer to the public internet. Use **Tailscale Serve**, keep Docker’s `127.0.0.1:8080` port binding, and do not enable Funnel or router port forwarding. Privacy still depends on trusted devices, strong passwords/access codes, and appropriate Tailscale access rules; no setup can guarantee absolute security.
+
+### Set it up on your computer
+
+1. Install [Tailscale](https://tailscale.com/download) on the computer, camera iPhones and viewing devices. Connect them to your personal Tailscale network, with access allowed only for the intended devices and people.
+2. Start CamWeave Web using the Docker Compose steps above. Set `CAMERA_HOSTS` to the cameras’ private hostnames or IP addresses. The Docker container must be able to reach them; test a camera in the viewer before relying on remote access.
+3. On the computer running Docker, run:
+
+   ```sh
+   tailscale serve --bg http://127.0.0.1:8080
+   ```
+
+   Follow Tailscale’s HTTPS setup prompt if shown. Copy the URL marked **Available within your tailnet**. You can check it again with `tailscale serve status`.
+4. Set `PUBLIC_URL` in `.env` to that exact HTTPS origin, without a path, then run `docker compose up -d`. Keep the strong `ADMIN_PASSWORD` you configured earlier.
+5. On the viewing phone or computer, connect Tailscale, open that HTTPS URL, sign in, and add the cameras’ private viewing links. Use the same URL at home or away. Keep the host computer awake and the camera apps open.
+
+**Quick privacy check:** from a separate viewing device on mobile data or another outside network, disconnect Tailscale and try opening a fresh viewer page. It should be unreachable. Reconnect Tailscale and confirm the viewer works. This checks the intended access path, not every possible security risk.
+
+See [Tailscale Serve](https://tailscale.com/docs/features/tailscale-serve) and the [Serve command reference](https://tailscale.com/docs/reference/tailscale-cli/serve) for private access, HTTPS and access-control details.
+
+### LAN and VPS alternatives
 
 **At home:** the server and cameras can use your existing reachable LAN. To watch from other devices, use a private HTTPS reverse proxy (such as Tailscale Serve) in front of the local listener. LAN-only HTTP is possible with a deliberately configured LAN `HOST` and `PUBLIC_URL`, but passwords and footage then depend on that network’s protection; use HTTPS or an encrypted VPN.
 
 **On a VPS:** install your choice of private-network software on the VPS, camera devices and viewing devices. Join the same permitted private network, and add the cameras by their private DNS names or IP addresses. A VPS cannot reach a home `192.168.x.x` address unless you explicitly provide routing, such as a VPN subnet router. No CamWeave-hosted relay is involved.
 
-One practical setup is [Tailscale Serve](https://tailscale.com/docs/features/tailscale-serve):
-
-1. Connect the VPS, cameras and viewing devices to your personal network. Limit network access to the people/devices who should see your cameras. A provider’s eligible free plan may be enough; check its terms.
-2. Run this server bound to localhost. On the VPS run `tailscale serve --bg http://127.0.0.1:8080` and follow Tailscale’s HTTPS setup if prompted.
-3. Set `PUBLIC_URL` to the exact HTTPS origin Tailscale reports (no extra path) and restart CamWeave Web. For Compose, use `docker compose up -d` after editing `.env`.
-4. Visit that private URL from your VPN-connected browser, then sign in. Keep the server’s direct port closed in your cloud firewall. **Use Serve, not Funnel:** Funnel publishes to the internet.
-5. Restrict VPN permissions for both browser → server and server → camera. Keep camera ports off the public internet.
+For a VPS, follow the same five Tailscale steps above, using the VPS wherever the instructions say “your computer”. Keep port 8080 closed in the cloud firewall. Allow only the necessary viewer → server and server → camera connections in your private-network policy.
 
 Tailscale is optional. WireGuard, ZeroTier, NetBird or another private network can work when DNS, routing and access rules provide both paths. CamWeave does not configure those networks for you. Reverse proxies must preserve the original `Host` and `Origin`, support streaming without buffering, and use a timeout longer than 60 seconds.
 
