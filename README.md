@@ -7,35 +7,53 @@ A free, MIT-licensed, self-hosted companion to CamWeave Camera. Save multiple ca
 ## What you need
 
 - A CamWeave Camera running on each camera device (camera build 9+ for ISO controls).
-- A computer or VPS running Node.js 24+, or Docker Compose.
+- A computer or VPS running Docker Compose (recommended), or Node.js 24+.
 - Camera viewing links, including their access codes.
 - A network path **from the server to every camera**, and **from your browser to the server**.
 
 Keep the iPhone camera app open in the foreground. Locking the phone or backgrounding it pauses capture. Four feeds per signed-in session are supported; each camera also has its own viewer limit. Video bandwidth passes through your server, so VPS data-transfer charges may apply. There is no recording, playback, motion detection or notification feature in this release.
 
-## Run locally
+## Recommended: Docker Compose
+
+Prebuilt images are published at `ghcr.io/camweave-project/camweave-web` for **linux/amd64** and **linux/arm64**. Public pulls need no GitHub login. The default Compose file pins version `1.0.1`; no local build or Node.js installation is needed.
+
+```sh
+mkdir camweave-web
+cd camweave-web
+curl -fsSLO https://raw.githubusercontent.com/camweave-project/camweave-web/v1.0.1/compose.yaml
+curl -fsSL https://raw.githubusercontent.com/camweave-project/camweave-web/v1.0.1/.env.example -o .env
+```
+
+Edit `.env` before starting:
+
+- Replace `ADMIN_PASSWORD` with a unique random password of at least 16 characters. A password manager can generate it.
+- Set `CAMERA_HOSTS` to the exact hostnames or IP addresses from your camera links, without ports or paths. This allowlist prevents arbitrary URL proxying.
+- Keep `PUBLIC_URL=http://127.0.0.1:8080` for local use; set your private HTTPS origin when using a reverse proxy.
+
+```sh
+docker compose pull
+docker compose up -d
+```
+
+Open `http://127.0.0.1:8080`, sign in with your server password, and add each camera’s full viewing link. Camera links are saved in a named Docker volume. The port is bound to localhost by default; follow the private-network guide below to view from another device.
+
+Your container must be able to resolve and route to the cameras. A VPN on the host does not automatically provide its DNS and routes to Docker containers.
+
+After changing `.env`, run `docker compose up -d` to recreate the service with the new settings. For upgrades, change the image version in `compose.yaml`, then run `docker compose pull && docker compose up -d`. Back up the camera volume first. `docker compose down` keeps that volume; adding `-v` deletes it. A moving `latest` tag is also published, but pinned versions make upgrades deliberate.
+
+## Alternative: run from source
+
+Requires Node.js 24+; useful for development or when the VPN-connected host has routes Docker cannot use.
 
 ```sh
 git clone https://github.com/camweave-project/camweave-web.git
 cd camweave-web
 cp .env.example .env
-```
-
-Edit `.env`: replace `ADMIN_PASSWORD` with a unique random password of at least 16 characters. Set `CAMERA_HOSTS` to the exact hostnames or IP addresses in your camera links, without ports or paths. This allowlist prevents the viewer from being used as an arbitrary URL proxy. Changing it requires a server restart.
-
-```sh
+# Configure .env as described above.
 npm start
 ```
 
-Open `http://127.0.0.1:8080`, sign in using your server password, and add each camera’s full viewing link. No npm dependencies need installing. The default listener is local-only.
-
-For Docker:
-
-```sh
-docker compose up -d --build
-```
-
-The Compose file publishes the port only on `127.0.0.1`. Camera links are saved in its named volume. Your container must be able to resolve and route to your camera hosts; a VPN on the host does not automatically guarantee that Docker containers have the same DNS and routes. If uncertain, run Node directly on the VPN-connected host first.
+No npm dependencies need installing. To build your own container, run `docker build -t camweave-web:local .` and replace the `image:` value in Compose with `camweave-web:local`.
 
 ## Watch from another device or deploy on a VPS
 
@@ -84,3 +102,7 @@ The app deliberately uses same-origin proxying: browsers do not need to contact 
 | `DATA_DIR` | `./data` | Persistent camera-link storage directory |
 
 MIT © Jianxuan Li. See [LICENSE](LICENSE).
+
+## Image releases
+
+Pushing a `v*` release tag runs the test suite and publishes amd64/arm64 images to GHCR with the version and `latest` tags. The workflow uses its temporary GitHub token with package-write permission; no Docker Hub account or registry password is needed. Only publish stable release tags matching `package.json`. The image includes the MIT license and source/revision metadata.
